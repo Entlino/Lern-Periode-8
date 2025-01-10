@@ -1,30 +1,28 @@
-import tkinter as tk  # GUI-Bibliothek
-from tkinter import ttk  # Modernere Widgets für Tkinter
-import yfinance as yf  # Bibliothek zum Abrufen von Finanzdaten
+import tkinter as tk
+from tkinter import ttk
+import yfinance as yf
 
 
 class FinanceApp:
     def __init__(self, root):
-        """
-        Konstruktor für die Finanz-App. Initialisiert das Fenster und die Widgets.
-        """
         self.root = root
         self.root.title("Finanzdaten App")
-        self.root.geometry("600x400")
-        self.root.configure(bg="#2e2e2e")  # Dunkler Hintergrund
+        self.root.geometry("600x450")  # Fenstergröße
+        self.root.configure(bg="#212121")  # Dunkler Hintergrund für modernes Design
+        self.root.resizable(False, False)  # Verhindert das Vergrößern des Fensters
 
         # Titel
-        self.title_label = tk.Label(root, text="Aktienkursanzeige", font=("Arial", 18, "bold"), bg="#2e2e2e",
+        self.title_label = tk.Label(root, text="Aktienkursanzeige", font=("Segoe UI", 20, "bold"), bg="#212121",
                                     fg="#ffffff")
-        self.title_label.pack(pady=30)
+        self.title_label.pack(pady=20)
 
-        # Eingabe für das Tickersymbol
-        self.symbol_label = tk.Label(root, text="Gib ein Tickersymbol ein (z. B. AAPL, TSLA):", font=("Arial", 12),
-                                     bg="#2e2e2e", fg="#ffffff")
+        # Eingabe für den Firmennamen oder Tickersymbol
+        self.symbol_label = tk.Label(root, text="Gib einen Firmennamen ein:", font=("Segoe UI", 12), bg="#212121",
+                                     fg="#ffffff")
         self.symbol_label.pack(pady=5)
 
-        self.symbol_entry = tk.Entry(root, width=30, font=("Arial", 12), borderwidth=2, relief="solid", fg="#ffffff",
-                                     bg="#3a3a3a")
+        self.symbol_entry = tk.Entry(root, width=30, font=("Segoe UI", 14), borderwidth=2, relief="solid", fg="#ffffff",
+                                     bg="#333333")
         self.symbol_entry.pack(pady=10)
 
         # Button zum Abrufen der Daten
@@ -32,7 +30,7 @@ class FinanceApp:
         self.fetch_button.pack(pady=20)
 
         # Label für das Ergebnis
-        self.result_label = tk.Label(root, text="Hier wird der Kurs angezeigt...", font=("Arial", 14), bg="#2e2e2e",
+        self.result_label = tk.Label(root, text="Hier wird der Kurs angezeigt...", font=("Segoe UI", 14), bg="#212121",
                                      fg="#ffffff")
         self.result_label.pack(pady=20)
 
@@ -51,37 +49,59 @@ class FinanceApp:
         # Style für Button und andere Widgets
         self.style = ttk.Style()
         self.style.configure("TButton", padding=8, relief="flat", background="#4CAF50", foreground="white",
-                             font=("Arial", 12, "bold"))
+                             font=("Segoe UI", 14, "bold"))
         self.style.map("TButton", background=[('active', '#45a049')])
 
-        self.style.configure("TCheckbutton", font=("Arial", 12), foreground="white", background="#2e2e2e", padding=5)
+        self.style.configure("TCheckbutton", font=("Segoe UI", 12), foreground="white", background="#212121", padding=5)
+
+        # Liste von Firmen und ihren Tickersymbolen laden
+        self.company_tickers = self.load_company_tickers()
+
+        # Binde die Enter-Taste an die `fetch_data`-Methode
+        self.symbol_entry.bind("<Return>", self.on_enter)
+
+    def load_company_tickers(self):
+        """
+        Lädt eine Liste von Firmen und ihren Tickersymbolen.
+        Hier ein einfaches Beispiel mit ein paar Unternehmen.
+        """
+        return {"apple": "AAPL", "microsoft": "MSFT", "google": "GOOGL", "tesla": "TSLA"}  # Beispielhafte Daten
 
     def fetch_data(self):
         """
         Holt den aktuellen Kurs des eingegebenen Tickersymbols und zeigt ihn in der GUI an.
         """
-        symbol = self.symbol_entry.get().strip()  # Eingabe vom Benutzer
-        if not symbol:
-            self.result_label.config(text="Bitte gib ein gültiges Tickersymbol ein.")
+        company_name = self.symbol_entry.get().strip().lower()  # Eingabe vom Benutzer, in Kleinbuchstaben umgewandelt
+        if not company_name:
+            self.result_label.config(text="Bitte gib einen Firmennamen oder Tickersymbol ein.")
             return
+
+        # Suche nach dem Ticker, wenn der Benutzer den Firmennamen eingegeben hat
+        if company_name in self.company_tickers:
+            symbol = self.company_tickers[company_name]
+        else:
+            symbol = company_name
 
         try:
             # Abrufen der Daten
             stock = yf.Ticker(symbol)
             hist_data = stock.history(period="1d")
 
-            # Überprüfen, ob Daten vorhanden sind
             if hist_data.empty:
                 self.result_label.config(text=f"Keine Daten für {symbol.upper()} gefunden.")
                 return
 
-            # Abrufen des letzten Schlusspreises
             price = hist_data['Close'].iloc[-1]
             self.result_label.config(text=f"Aktueller Kurs von {symbol.upper()}: {price:.2f} USD")
         except Exception as e:
-            # Fehlerbehandlung
             self.result_label.config(text="Fehler beim Abrufen der Daten.")
             print(f"Error: {e}")
+
+    def on_enter(self, event=None):
+        """
+        Wird aufgerufen, wenn die Enter-Taste gedrückt wird.
+        """
+        self.fetch_data()
 
     def toggle_auto_update(self):
         """
