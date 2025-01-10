@@ -1,134 +1,249 @@
 import tkinter as tk
 from tkinter import ttk
 import yfinance as yf
-
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
 
 class FinanceApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Finanzdaten App")
-        self.root.geometry("600x450")  # Fenstergröße
-        self.root.configure(bg="#212121")  # Dunkler Hintergrund für modernes Design
-        self.root.resizable(False, False)  # Verhindert das Vergrößern des Fensters
+        self.root.title("Finance Tracker")
+        self.root.geometry("900x700")
+        self.root.minsize(900, 700)
+        self.root.configure(bg="#1E1E2F")
+
+        # Vollbildmodus
+        self.is_fullscreen = False
+        self.root.bind("<F11>", self.toggle_fullscreen)
+        self.root.bind("<Escape>", self.exit_fullscreen)
 
         # Titel
-        self.title_label = tk.Label(root, text="Aktienkursanzeige", font=("Segoe UI", 20, "bold"), bg="#212121",
-                                    fg="#ffffff")
+        self.title_label = tk.Label(root, text="Stock Price Viewer", font=("Segoe UI", 24, "bold"),
+                                    bg="#1E1E2F", fg="#FFFFFF")
         self.title_label.pack(pady=20)
 
-        # Eingabe für den Firmennamen oder Tickersymbol
-        self.symbol_label = tk.Label(root, text="Gib einen Firmennamen ein:", font=("Segoe UI", 12), bg="#212121",
-                                     fg="#ffffff")
-        self.symbol_label.pack(pady=5)
+        # Eingabefeld und Vorschlagsbox
+        self.input_frame = tk.Frame(root, bg="#1E1E2F")
+        self.input_frame.pack(pady=10)
 
-        self.symbol_entry = tk.Entry(root, width=30, font=("Segoe UI", 14), borderwidth=2, relief="solid", fg="#ffffff",
-                                     bg="#333333")
-        self.symbol_entry.pack(pady=10)
+        self.symbol_entry = tk.Entry(self.input_frame, font=("Segoe UI", 14), bg="#2A2A3D", fg="#FFFFFF",
+                                     insertbackground="#FFFFFF", relief="flat", highlightthickness=1,
+                                     highlightbackground="#3D8EF3", highlightcolor="#5A9FF5")
+        self.symbol_entry.pack(pady=5)
+        self.symbol_entry.bind("<KeyRelease>", self.update_suggestions)
 
-        # Button zum Abrufen der Daten
-        self.fetch_button = ttk.Button(root, text="Daten abrufen", command=self.fetch_data, style="TButton")
+        self.suggestions_frame = tk.Frame(self.input_frame, bg="#1E1E2F")
+        self.suggestions_scrollbar = tk.Scrollbar(self.suggestions_frame, orient="vertical")
+        self.suggestions_box = tk.Listbox(self.suggestions_frame, font=("Segoe UI", 12), bg="#2A2A3D",
+                                          fg="#FFFFFF", relief="flat", yscrollcommand=self.suggestions_scrollbar.set,
+                                          selectbackground="#3D8EF3", activestyle="none", bd=0)
+        self.suggestions_scrollbar.config(command=self.suggestions_box.yview)
+        self.suggestions_box.pack(side="left", fill="both", expand=True, padx=2, pady=2)
+        self.suggestions_scrollbar.pack(side="right", fill="y")
+        self.suggestions_frame.pack(pady=5, fill="x")
+        self.suggestions_frame.pack_forget()
+
+        self.suggestions_box.bind("<<ListboxSelect>>", self.select_suggestion)
+
+        # Daten abrufen Button
+        self.fetch_button = ttk.Button(root, text="Fetch Data", command=self.fetch_data)
         self.fetch_button.pack(pady=20)
 
-        # Label für das Ergebnis
-        self.result_label = tk.Label(root, text="Hier wird der Kurs angezeigt...", font=("Segoe UI", 14), bg="#212121",
-                                     fg="#ffffff")
+        # Ergebnisbereich
+        self.result_label = tk.Label(root, text="",
+                                     font=("Segoe UI", 16), bg="#1E1E2F", fg="#FFFFFF", wraplength=700, justify="left")
         self.result_label.pack(pady=20)
 
-        # Automatische Aktualisierung: Checkbox
-        self.auto_update = tk.BooleanVar()
-        self.auto_update_check = ttk.Checkbutton(
-            root, text="Automatisch alle 10 Sekunden aktualisieren", variable=self.auto_update,
-            command=self.toggle_auto_update, style="TCheckbutton"
-        )
-        self.auto_update_check.pack(pady=10)
+        # Diagrammbereich
+        self.figure = plt.Figure(figsize=(8, 4), dpi=100)
+        self.chart = self.figure.add_subplot(111)
+        self.canvas = FigureCanvasTkAgg(self.figure, root)
+        self.chart_visible = False
 
-        # Timer für automatische Updates
-        self.update_interval = 10000  # 10 Sekunden in Millisekunden
-        self.auto_update_job = None
-
-        # Style für Button und andere Widgets
-        self.style = ttk.Style()
-        self.style.configure("TButton", padding=8, relief="flat", background="#4CAF50", foreground="white",
-                             font=("Segoe UI", 14, "bold"))
-        self.style.map("TButton", background=[('active', '#45a049')])
-
-        self.style.configure("TCheckbutton", font=("Segoe UI", 12), foreground="white", background="#212121", padding=5)
-
-        # Liste von Firmen und ihren Tickersymbolen laden
+        # Daten für Unternehmen und Symbole laden
         self.company_tickers = self.load_company_tickers()
 
-        # Binde die Enter-Taste an die `fetch_data`-Methode
-        self.symbol_entry.bind("<Return>", self.on_enter)
-
     def load_company_tickers(self):
-        """
-        Lädt eine Liste von Firmen und ihren Tickersymbolen.
-        Hier ein einfaches Beispiel mit ein paar Unternehmen.
-        """
-        return {"apple": "AAPL", "microsoft": "MSFT", "google": "GOOGL", "tesla": "TSLA"}  # Beispielhafte Daten
+        return {
+            # Aktien
+            "apple": "AAPL",
+            "microsoft": "MSFT",
+            "google": "GOOGL",
+            "tesla": "TSLA",
+            "amazon": "AMZN",
+            "facebook": "META",
+            "netflix": "NFLX",
+            "nvidia": "NVDA",
+            "saudi aramco": "2222.SR",
+            "berkshire hathaway": "BRK.B",
+            "meta platforms": "META",
+            "johnson & johnson": "JNJ",
+            "jpmorgan chase": "JPM",
+            "exxonmobil": "XOM",
+            "visa": "V",
+            "unitedhealth": "UNH",
+            "home depot": "HD",
+            "pfizer": "PFE",
+            "walmart": "WMT",
+            "roche": "ROG.SW",
+            "chevron": "CVX",
+            "mastercard": "MA",
+            "disney": "DIS",
+            "adobe": "ADBE",
+            "intel": "INTC",
+            "abbvie": "ABBV",
+            "eli lilly": "LLY",
+            "bank of america": "BAC",
+            "att": "T",
+            "samsung electronics": "005930.KS",
+            "coca cola": "KO",
+            "cisco": "CSCO",
+            "novartis": "NOVN.SW",
+            "mcdonalds": "MCD",
+            "pepsico": "PEP",
+            "merck": "MRK",
+            "nike": "NKE",
+            "ibm": "IBM",
+            "oracle": "ORCL",
+            "starbucks": "SBUX",
+            "general electric": "GE",
+            "citigroup": "C",
+            "boeing": "BA",
+            "lockheed martin": "LMT",
+            "wells fargo": "WFC",
+            "t-mobile us": "TMUS",
+            "caterpillar": "CAT",
+            "walgreens boots alliance": "WBA",
+            "salesforce": "CRM",
+
+            # ETFs
+            "s&p 500": "SPY",
+            "nasdaq 100": "QQQ",
+            "msci world": "URTH",
+            "emerging markets": "VWO",
+            "dow jones": "DIA",
+            "vanguard total stock market": "VTI",
+            "vanguard growth": "VUG",
+            "invesco qqq": "QQQ",
+            "vanguard s&p 500": "VOO",
+            "ishares msci emerging markets": "EEM",
+            "vanguard ftse all-world": "VEU",
+            "spdr gold": "GLD",
+            "ishares russell 2000": "IWM",
+            "schwab u.s. dividend equity": "SCHD",
+            "vanguard dividend appreciation": "VIG",
+            "ishares msci acwi ex-us": "ACWX",
+            "ishares msci world": "URTH",
+            "invesco emerging markets sovereign debt": "PCY",
+            "vanek vectors gold miners": "GDX",
+            "ishares u.s. real estate": "IYR",
+            "vanguard reit": "VNQ",
+            "ishares u.s. healthcare providers": "IHF",
+            "ishares global clean energy": "ICLN",
+            "spdr s&p dividend": "SDY",
+            "ishares msci all country world index": "ACWI",
+            "direxion daily financial bull 3x": "FAS",
+            "ishares iboxx $ investment grade corporate bond": "LQD",
+            "vanguard short-term bond": "BSV",
+            "spdr bloomberg barclays high yield bond": "JNK",
+            "invesco preferred": "PGX",
+            "global x robotics & ai": "BOTZ",
+            "ishares global infrastructure": "IGF",
+            "vanguard consumer discretionary": "VCR",
+            "ishares u.s. technology": "IYW",
+            "ishares biotechnology": "IBB",
+            "spdr s&p 500 growth": "SPYG",
+            "ishares core msci eafe": "IEFA",
+            "ishares msci emerging markets asia": "EEMA",
+            "vanguard total international stock": "VXUS",
+            "schwab u.s. large-cap": "SCHX",
+            "invesco s&p 500 low volatility": "SPLV",
+            "first trust nasdaq-100 equal weighted index": "QQEW",
+            "ishares msci usa minimum volatility": "USMV",
+            "ishares russell 1000 growth": "IWF",
+            "ishares russell 1000 value": "IWD",
+            "spdr s&p 500 value": "SPYV",
+            "global x msci china financials": "CHIX",
+            "vanguard health care": "VHT",
+            "ishares edge msci min vol usa": "USMV",
+            "schwab u.s. reit": "SCHH",
+            "invesco s&p 500 equal weight": "RSP",
+            "ishares iboxx $ high yield corporate bond": "HYG",
+            "direxion daily technology bull 3x": "TECL",
+            "vaneck vectors semiconductor": "SMH",
+
+        }
 
     def fetch_data(self):
-        """
-        Holt den aktuellen Kurs des eingegebenen Tickersymbols und zeigt ihn in der GUI an.
-        """
-        company_name = self.symbol_entry.get().strip().lower()  # Eingabe vom Benutzer, in Kleinbuchstaben umgewandelt
+        company_name = self.symbol_entry.get().strip().lower()
         if not company_name:
-            self.result_label.config(text="Bitte gib einen Firmennamen oder Tickersymbol ein.")
+            self.result_label.config(text="Please enter a valid company name or symbol.")
             return
 
-        # Suche nach dem Ticker, wenn der Benutzer den Firmennamen eingegeben hat
-        if company_name in self.company_tickers:
-            symbol = self.company_tickers[company_name]
-        else:
-            symbol = company_name
+        symbol = self.company_tickers.get(company_name, company_name)
 
         try:
-            # Abrufen der Daten
             stock = yf.Ticker(symbol)
-            hist_data = stock.history(period="1d")
+            hist_data = stock.history(period="1mo")
 
             if hist_data.empty:
-                self.result_label.config(text=f"Keine Daten für {symbol.upper()} gefunden.")
+                self.result_label.config(text=f"No data found for {symbol.upper()}.")
                 return
 
+            # Preis anzeigen
             price = hist_data['Close'].iloc[-1]
-            self.result_label.config(text=f"Aktueller Kurs von {symbol.upper()}: {price:.2f} USD")
+            self.result_label.config(text=f"Current price of {symbol.upper()}: {price:.2f} USD")
+
+            # Diagramm anzeigen und aktualisieren
+            self.chart.clear()
+            self.chart.plot(hist_data.index, hist_data['Close'], label="Close Price", color="#3D8EF3")
+            self.chart.set_title(f"Price Trend for {symbol.upper()}", fontsize=14)
+            self.chart.set_xlabel("Date", fontsize=12)
+            self.chart.set_ylabel("Price (USD)", fontsize=12)
+            self.chart.legend()
+
+            if not self.chart_visible:
+                self.canvas.get_tk_widget().pack(pady=20)
+                self.chart_visible = True
+
+            self.canvas.draw()
+
         except Exception as e:
-            self.result_label.config(text="Fehler beim Abrufen der Daten.")
+            self.result_label.config(text="Error fetching data. Please try again later.")
             print(f"Error: {e}")
 
-    def on_enter(self, event=None):
-        """
-        Wird aufgerufen, wenn die Enter-Taste gedrückt wird.
-        """
-        self.fetch_data()
+    def update_suggestions(self, event=None):
+        search_term = self.symbol_entry.get().strip().lower()
+        self.suggestions_box.delete(0, tk.END)
 
-    def toggle_auto_update(self):
-        """
-        Aktiviert oder deaktiviert die automatische Aktualisierung.
-        """
-        if self.auto_update.get():
-            self.start_auto_update()
+        if search_term:
+            matches = [(name, ticker) for name, ticker in self.company_tickers.items() if search_term in name]
+
+            if matches:
+                self.suggestions_frame.pack(pady=5, fill="x")
+                self.suggestions_box.config(height=min(len(matches), 5))
+                for name, ticker in matches:
+                    self.suggestions_box.insert(tk.END, f"{name} ({ticker})")
+            else:
+                self.suggestions_frame.pack_forget()
         else:
-            self.stop_auto_update()
+            self.suggestions_frame.pack_forget()
 
-    def start_auto_update(self):
-        """
-        Startet den Timer für die automatische Aktualisierung.
-        """
-        self.fetch_data()  # Abrufen der Daten
-        self.auto_update_job = self.root.after(self.update_interval, self.start_auto_update)
+    def select_suggestion(self, event=None):
+        selected = self.suggestions_box.get(self.suggestions_box.curselection())
+        name = selected.split(" (")[0]
+        self.symbol_entry.delete(0, tk.END)
+        self.symbol_entry.insert(0, name)
+        self.suggestions_frame.pack_forget()
 
-    def stop_auto_update(self):
-        """
-        Stoppt den Timer für die automatische Aktualisierung.
-        """
-        if self.auto_update_job:
-            self.root.after_cancel(self.auto_update_job)
-            self.auto_update_job = None
+    def toggle_fullscreen(self, event=None):
+        self.is_fullscreen = not self.is_fullscreen
+        self.root.attributes("-fullscreen", self.is_fullscreen)
 
+    def exit_fullscreen(self, event=None):
+        self.is_fullscreen = False
+        self.root.attributes("-fullscreen", False)
 
-# Hauptprogramm
 if __name__ == "__main__":
     root = tk.Tk()
     app = FinanceApp(root)
