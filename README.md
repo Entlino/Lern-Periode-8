@@ -12,6 +12,9 @@ Nun habe ich mich für ein Projekt entschieden welches ich in folgende Teile auf
 - LP10: Mögliche Verbesserungen / Weiterentwicklungen wie eine Smartphone APP oder eine Webapp.
 
 10.1.2025
-- [ ] Python Desktop App erstellen und sich einarbeiten.
-- [ ] Mögliche API's suchen welche man verwenden könnte.
-- [ ] Erste einbindung von den API's mit einer einfach ausgabe der Daten.
+- [x] Python Desktop App erstellen und sich einarbeiten.
+- [x] Mögliche API's suchen welche man verwenden könnte.
+- [x] Erste einbindung von den API's mit einer einfach ausgabe der Daten.
+
+
+Heute habe ich damit begonnen die Grobplanung zu erledigen, danach habe ich erstmals eine Grundstruktur für das Programm in Python zu erstellen, dann habe ich mich für die Bibliothek von yFinance entschieden um damit mein Projekt zu realisieren. Diese habe ich dann eingebunden und es funktioniert, schlussendlich habe ich noch Diagramme hinzugefügt und das ganze visuell noch bisschen schöner gemacht.
