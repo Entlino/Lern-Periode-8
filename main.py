@@ -1,250 +1,223 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import yfinance as yf
+import matplotlib
+matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 
-class FinanceApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Finance Tracker")
-        self.root.geometry("900x700")
-        self.root.minsize(900, 700)
-        self.root.configure(bg="#1E1E2F")
+# Farbdefinitionen für das dunkle Theme
+BG_COLOR = "#121212"        # Haupt-Hintergrund
+SIDEBAR_COLOR = "#1c1c1c"   # Sidebar-Hintergrund
+FG_COLOR = "#ffffff"        # Schriftfarbe
+ACCENT_COLOR = "#4a90e2"     # Akzentfarbe (z. B. für Buttons)
 
-        # Vollbildmodus
-        self.is_fullscreen = False
-        self.root.bind("<F11>", self.toggle_fullscreen)
-        self.root.bind("<Escape>", self.exit_fullscreen)
+class App(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Aktien & ETF Portfolio")
+        self.geometry("1100x650")
+        self.configure(bg=BG_COLOR)
+
+        # ttk Style initialisieren und konfigurieren
+        style = ttk.Style(self)
+        style.theme_use("clam")  # 'clam' ist oft ein guter Ausgangspunkt
+        style.configure("TFrame", background=BG_COLOR)
+        style.configure("TLabel", background=BG_COLOR, foreground=FG_COLOR, font=("Helvetica", 11))
+        style.configure("Header.TLabel", font=("Helvetica", 16, "bold"))
+        style.configure("TButton", background=SIDEBAR_COLOR, foreground=FG_COLOR, relief="flat", font=("Helvetica", 10))
+        style.map("TButton",
+                  background=[("active", ACCENT_COLOR)],
+                  foreground=[("active", FG_COLOR)])
+        style.configure("TEntry", fieldbackground=SIDEBAR_COLOR, foreground=FG_COLOR, font=("Helvetica", 10))
+        style.configure("TCombobox", fieldbackground=SIDEBAR_COLOR, foreground=FG_COLOR, font=("Helvetica", 10))
+
+        # Portfolio-Daten (in Memory, z. B. später in Datei speichern)
+        self.portfolio = []
+
+        # Erstelle den Container für Sidebar und Hauptbereich
+        self.sidebar = ttk.Frame(self, width=220)
+        self.sidebar.pack(side="left", fill="y")
+        self.sidebar.config(style="TFrame")
+        self.sidebar.configure(relief="sunken")
+
+        self.container = ttk.Frame(self)
+        self.container.pack(side="right", fill="both", expand=True)
+
+        # Sidebar mit modernisierten Buttons
+        self.create_sidebar()
+
+        # Seiten in einem Dictionary verwalten
+        self.frames = {}
+        for F in (MarketPage, PortfolioPage, OtherPage):
+            frame = F(parent=self.container, controller=self)
+            self.frames[F.__name__] = frame
+            frame.grid(row=0, column=0, sticky="nsew")
+
+        self.show_frame("MarketPage")
+
+    def create_sidebar(self):
+        # Setze den Hintergrund der Sidebar über ein eigenes Label als Platzhalter
+        sidebar_bg = tk.Label(self.sidebar, background=SIDEBAR_COLOR)
+        sidebar_bg.place(relwidth=1, relheight=1)
+
+        btn_market = ttk.Button(self.sidebar, text="Aktueller Markt",
+                                command=lambda: self.show_frame("MarketPage"))
+        btn_market.pack(fill="x", padx=20, pady=(30, 10))
+
+        btn_portfolio = ttk.Button(self.sidebar, text="Portfolio",
+                                   command=lambda: self.show_frame("PortfolioPage"))
+        btn_portfolio.pack(fill="x", padx=20, pady=10)
+
+        btn_other = ttk.Button(self.sidebar, text="Weitere Menüpunkte",
+                               command=lambda: self.show_frame("OtherPage"))
+        btn_other.pack(fill="x", padx=20, pady=10)
+
+    def show_frame(self, page_name):
+        frame = self.frames[page_name]
+        frame.tkraise()
+
+
+class MarketPage(ttk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
 
         # Titel
-        self.title_label = tk.Label(root, text="Stock Price Viewer", font=("Segoe UI", 24, "bold"),
-                                    bg="#1E1E2F", fg="#FFFFFF")
-        self.title_label.pack(pady=20)
+        lbl_title = ttk.Label(self, text="Aktueller Markt", style="Header.TLabel")
+        lbl_title.pack(pady=(20,10))
 
-        # Eingabefeld und Vorschlagsbox
-        self.input_frame = tk.Frame(root, bg="#1E1E2F")
-        self.input_frame.pack(pady=10)
+        # Eingabefeld für Ticker-Symbol (modernisiert mit ttk.Entry)
+        ticker_frame = ttk.Frame(self)
+        ticker_frame.pack(pady=5)
+        ttk.Label(ticker_frame, text="Ticker-Symbol:").pack(side="left", padx=5)
+        self.ticker_entry = ttk.Entry(ticker_frame, width=10)
+        self.ticker_entry.pack(side="left", padx=5)
+        self.ticker_entry.insert(0, "AAPL")
 
-        self.symbol_entry = tk.Entry(self.input_frame, font=("Segoe UI", 14), bg="#2A2A3D", fg="#FFFFFF",
-                                     insertbackground="#FFFFFF", relief="flat", highlightthickness=1,
-                                     highlightbackground="#3D8EF3", highlightcolor="#5A9FF5")
-        self.symbol_entry.pack(pady=5)
-        self.symbol_entry.bind("<KeyRelease>", self.update_suggestions)
+        # Auswahl für den Zeitraum mit ttk.Combobox
+        period_frame = ttk.Frame(self)
+        period_frame.pack(pady=5)
+        ttk.Label(period_frame, text="Zeitraum:").pack(side="left", padx=5)
+        self.period_var = tk.StringVar()
+        self.period_combo = ttk.Combobox(period_frame, textvariable=self.period_var, width=8,
+                                         values=["1d", "5d", "1mo", "3mo", "6mo", "1y", "5y", "max"])
+        self.period_combo.set("1mo")
+        self.period_combo.pack(side="left", padx=5)
 
-        self.suggestions_frame = tk.Frame(self.input_frame, bg="#1E1E2F")
-        self.suggestions_scrollbar = tk.Scrollbar(self.suggestions_frame, orient="vertical")
-        self.suggestions_box = tk.Listbox(self.suggestions_frame, font=("Segoe UI", 12), bg="#2A2A3D",
-                                          fg="#FFFFFF", relief="flat", yscrollcommand=self.suggestions_scrollbar.set,
-                                          selectbackground="#3D8EF3", activestyle="none", bd=0)
-        self.suggestions_scrollbar.config(command=self.suggestions_box.yview)
-        self.suggestions_box.pack(side="left", fill="both", expand=True, padx=2, pady=2)
-        self.suggestions_scrollbar.pack(side="right", fill="y")
-        self.suggestions_frame.pack(pady=5, fill="x")
-        self.suggestions_frame.pack_forget()
+        # Button zum Abrufen der Daten
+        btn_fetch = ttk.Button(self, text="Daten abrufen", command=self.fetch_data)
+        btn_fetch.pack(pady=15)
 
-        self.suggestions_box.bind("<<ListboxSelect>>", self.select_suggestion)
+        # Label zur Anzeige des Preises
+        self.price_label = ttk.Label(self, text="")
+        self.price_label.pack(pady=5)
 
-        # Daten abrufen Button
-        self.fetch_button = ttk.Button(root, text="Fetch Data", command=self.fetch_data)
-        self.fetch_button.pack(pady=20)
-
-        # Ergebnisbereich
-        self.result_label = tk.Label(root, text="",
-                                     font=("Segoe UI", 16), bg="#1E1E2F", fg="#FFFFFF", wraplength=700, justify="left")
-        self.result_label.pack(pady=20)
-
-        # Diagrammbereich
-        self.figure = plt.Figure(figsize=(8, 4), dpi=100)
-        self.chart = self.figure.add_subplot(111)
-        self.canvas = FigureCanvasTkAgg(self.figure, root)
-        self.chart_visible = False
-
-        # Daten für Unternehmen und Symbole laden
-        self.company_tickers = self.load_company_tickers()
-
-    def load_company_tickers(self):
-        return {
-            # Aktien
-            "apple": "AAPL",
-            "microsoft": "MSFT",
-            "google": "GOOGL",
-            "tesla": "TSLA",
-            "amazon": "AMZN",
-            "facebook": "META",
-            "netflix": "NFLX",
-            "nvidia": "NVDA",
-            "saudi aramco": "2222.SR",
-            "berkshire hathaway": "BRK.B",
-            "meta platforms": "META",
-            "johnson & johnson": "JNJ",
-            "jpmorgan chase": "JPM",
-            "exxonmobil": "XOM",
-            "visa": "V",
-            "unitedhealth": "UNH",
-            "home depot": "HD",
-            "pfizer": "PFE",
-            "walmart": "WMT",
-            "roche": "ROG.SW",
-            "chevron": "CVX",
-            "mastercard": "MA",
-            "disney": "DIS",
-            "adobe": "ADBE",
-            "intel": "INTC",
-            "abbvie": "ABBV",
-            "eli lilly": "LLY",
-            "bank of america": "BAC",
-            "att": "T",
-            "samsung electronics": "005930.KS",
-            "coca cola": "KO",
-            "cisco": "CSCO",
-            "novartis": "NOVN.SW",
-            "mcdonalds": "MCD",
-            "pepsico": "PEP",
-            "merck": "MRK",
-            "nike": "NKE",
-            "ibm": "IBM",
-            "oracle": "ORCL",
-            "starbucks": "SBUX",
-            "general electric": "GE",
-            "citigroup": "C",
-            "boeing": "BA",
-            "lockheed martin": "LMT",
-            "wells fargo": "WFC",
-            "t-mobile us": "TMUS",
-            "caterpillar": "CAT",
-            "walgreens boots alliance": "WBA",
-            "salesforce": "CRM",
-
-            # ETFs
-            "s&p 500": "SPY",
-            "nasdaq 100": "QQQ",
-            "msci world": "URTH",
-            "emerging markets": "VWO",
-            "dow jones": "DIA",
-            "vanguard total stock market": "VTI",
-            "vanguard growth": "VUG",
-            "invesco qqq": "QQQ",
-            "vanguard s&p 500": "VOO",
-            "ishares msci emerging markets": "EEM",
-            "vanguard ftse all-world": "VEU",
-            "spdr gold": "GLD",
-            "ishares russell 2000": "IWM",
-            "schwab u.s. dividend equity": "SCHD",
-            "vanguard dividend appreciation": "VIG",
-            "ishares msci acwi ex-us": "ACWX",
-            "ishares msci world": "URTH",
-            "invesco emerging markets sovereign debt": "PCY",
-            "vanek vectors gold miners": "GDX",
-            "ishares u.s. real estate": "IYR",
-            "vanguard reit": "VNQ",
-            "ishares u.s. healthcare providers": "IHF",
-            "ishares global clean energy": "ICLN",
-            "spdr s&p dividend": "SDY",
-            "ishares msci all country world index": "ACWI",
-            "direxion daily financial bull 3x": "FAS",
-            "ishares iboxx $ investment grade corporate bond": "LQD",
-            "vanguard short-term bond": "BSV",
-            "spdr bloomberg barclays high yield bond": "JNK",
-            "invesco preferred": "PGX",
-            "global x robotics & ai": "BOTZ",
-            "ishares global infrastructure": "IGF",
-            "vanguard consumer discretionary": "VCR",
-            "ishares u.s. technology": "IYW",
-            "ishares biotechnology": "IBB",
-            "spdr s&p 500 growth": "SPYG",
-            "ishares core msci eafe": "IEFA",
-            "ishares msci emerging markets asia": "EEMA",
-            "vanguard total international stock": "VXUS",
-            "schwab u.s. large-cap": "SCHX",
-            "invesco s&p 500 low volatility": "SPLV",
-            "first trust nasdaq-100 equal weighted index": "QQEW",
-            "ishares msci usa minimum volatility": "USMV",
-            "ishares russell 1000 growth": "IWF",
-            "ishares russell 1000 value": "IWD",
-            "spdr s&p 500 value": "SPYV",
-            "global x msci china financials": "CHIX",
-            "vanguard health care": "VHT",
-            "ishares edge msci min vol usa": "USMV",
-            "schwab u.s. reit": "SCHH",
-            "invesco s&p 500 equal weight": "RSP",
-            "ishares iboxx $ high yield corporate bond": "HYG",
-            "direxion daily technology bull 3x": "TECL",
-            "vaneck vectors semiconductor": "SMH",
-
-        }
+        # Frame für Diagramm
+        self.chart_frame = ttk.Frame(self)
+        self.chart_frame.pack(fill="both", expand=True, pady=(10,20))
 
     def fetch_data(self):
-        company_name = self.symbol_entry.get().strip().lower()
-        if not company_name:
-            self.result_label.config(text="Please enter a valid company name or symbol.")
+        ticker_symbol = self.ticker_entry.get().strip().upper()
+        period = self.period_var.get()
+
+        if not ticker_symbol:
+            messagebox.showerror("Fehler", "Bitte geben Sie ein Ticker-Symbol ein.")
             return
 
-        symbol = self.company_tickers.get(company_name, company_name)
-
         try:
-            stock = yf.Ticker(symbol)
-            hist_data = stock.history(period="1mo")
-
-            if hist_data.empty:
-                self.result_label.config(text=f"No data found for {symbol.upper()}.")
+            stock = yf.Ticker(ticker_symbol)
+            data = stock.history(period=period)
+            if data.empty:
+                messagebox.showinfo("Info", "Keine Daten gefunden. Überprüfen Sie das Ticker-Symbol oder den Zeitraum.")
                 return
 
-            # Preis anzeigen
-            price = hist_data['Close'].iloc[-1]
-            self.result_label.config(text=f"Current price of {symbol.upper()}: {price:.2f} USD")
-
-            # Diagramm anzeigen und aktualisieren
-            self.chart.clear()
-            self.chart.plot(hist_data.index, hist_data['Close'], label="Close Price", color="#3D8EF3")
-            self.chart.set_title(f"Price Trend for {symbol.upper()}", fontsize=14)
-            self.chart.set_xlabel("Date", fontsize=12)
-            self.chart.set_ylabel("Price (USD)", fontsize=12)
-            self.chart.legend()
-
-            if not self.chart_visible:
-                self.canvas.get_tk_widget().pack(pady=20)
-                self.chart_visible = True
-
-            self.canvas.draw()
+            current_price = data['Close'].iloc[-1]
+            self.price_label.config(text=f"Aktueller Kurs von {ticker_symbol}: {current_price:.2f} USD")
+            self.plot_chart(data, ticker_symbol, period)
 
         except Exception as e:
-            self.result_label.config(text="Error fetching data. Please try again later.")
-            print(f"Error: {e}")
+            messagebox.showerror("Fehler", f"Es trat ein Fehler auf:\n{e}")
 
-    def update_suggestions(self, event=None):
-        search_term = self.symbol_entry.get().strip().lower()
-        self.suggestions_box.delete(0, tk.END)
+    def plot_chart(self, data, ticker_symbol, period):
+        for widget in self.chart_frame.winfo_children():
+            widget.destroy()
 
-        if search_term:
-            matches = [(name, ticker) for name, ticker in self.company_tickers.items() if search_term in name]
+        fig, ax = plt.subplots(figsize=(6,4), dpi=100)
+        ax.plot(data.index, data['Close'], label="Schlusskurs", color=ACCENT_COLOR)
+        ax.set_title(f"{ticker_symbol} – Schlusskursverlauf ({period})", color=FG_COLOR)
+        ax.set_xlabel("Datum", color=FG_COLOR)
+        ax.set_ylabel("Preis (USD)", color=FG_COLOR)
+        ax.tick_params(colors=FG_COLOR)
+        ax.legend(facecolor=BG_COLOR, edgecolor=FG_COLOR, labelcolor=FG_COLOR)
 
-            if matches:
-                self.suggestions_frame.pack(pady=5, fill="x")
-                self.suggestions_box.config(height=min(len(matches), 5))
-                for name, ticker in matches:
-                    self.suggestions_box.insert(tk.END, f"{name} ({ticker})")
-            else:
-                self.suggestions_frame.pack_forget()
+        # Dunkles Diagramm
+        fig.patch.set_facecolor(BG_COLOR)
+        ax.set_facecolor(BG_COLOR)
+
+        canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
+
+class PortfolioPage(ttk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+
+        lbl_title = ttk.Label(self, text="Ihr Portfolio", style="Header.TLabel")
+        lbl_title.pack(pady=(20,10))
+
+        form_frame = ttk.Frame(self)
+        form_frame.pack(pady=5)
+        ttk.Label(form_frame, text="Ticker hinzufügen:").pack(side="left", padx=5)
+        self.new_ticker_entry = ttk.Entry(form_frame, width=10)
+        self.new_ticker_entry.pack(side="left", padx=5)
+        btn_add = ttk.Button(form_frame, text="Hinzufügen", command=self.add_ticker)
+        btn_add.pack(side="left", padx=5)
+
+        self.portfolio_list_frame = ttk.Frame(self)
+        self.portfolio_list_frame.pack(pady=15, fill="both", expand=True)
+
+        self.update_portfolio_list()
+
+    def add_ticker(self):
+        new_ticker = self.new_ticker_entry.get().strip().upper()
+        if not new_ticker:
+            messagebox.showerror("Fehler", "Bitte geben Sie ein Ticker-Symbol ein.")
+            return
+        if new_ticker in self.controller.portfolio:
+            messagebox.showinfo("Info", f"{new_ticker} ist bereits in Ihrem Portfolio vorhanden.")
         else:
-            self.suggestions_frame.pack_forget()
+            self.controller.portfolio.append(new_ticker)
+            messagebox.showinfo("Erfolg", f"{new_ticker} wurde hinzugefügt!")
+            self.new_ticker_entry.delete(0, tk.END)
+            self.update_portfolio_list()
 
-    def select_suggestion(self, event=None):
-        selected = self.suggestions_box.get(self.suggestions_box.curselection())
-        name = selected.split(" (")[0]
-        self.symbol_entry.delete(0, tk.END)
-        self.symbol_entry.insert(0, name)
-        self.suggestions_frame.pack_forget()
+    def update_portfolio_list(self):
+        for widget in self.portfolio_list_frame.winfo_children():
+            widget.destroy()
 
-    def toggle_fullscreen(self, event=None):
-        self.is_fullscreen = not self.is_fullscreen
-        self.root.attributes("-fullscreen", self.is_fullscreen)
+        if not self.controller.portfolio:
+            lbl_empty = ttk.Label(self.portfolio_list_frame, text="Ihr Portfolio ist leer.")
+            lbl_empty.pack()
+        else:
+            for ticker in self.controller.portfolio:
+                lbl = ttk.Label(self.portfolio_list_frame, text=ticker, font=("Helvetica", 12))
+                lbl.pack(anchor="w", padx=20, pady=2)
 
-    def exit_fullscreen(self, event=None):
-        self.is_fullscreen = False
-        self.root.attributes("-fullscreen", False)
+
+class OtherPage(ttk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+
+        lbl_title = ttk.Label(self, text="Weitere Menüpunkte", style="Header.TLabel")
+        lbl_title.pack(pady=(20,10))
+        lbl_info = ttk.Label(self, text="Hier können weitere Funktionen integriert werden.")
+        lbl_info.pack(pady=5)
+
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = FinanceApp(root)
-    root.mainloop()
+    app = App()
+    app.mainloop()
