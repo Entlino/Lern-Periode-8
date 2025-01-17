@@ -21,7 +21,8 @@ Heute habe ich damit begonnen die Grobplanung zu erledigen, danach habe ich erst
 
 
 ## 17.01.2025
-- [ ] Heute möchte ich dafür sorgen das das Problem welches dafür sorgt das mein Programm nicht startet behoben wird.
-- [ ] Zudem möchte ich daran arbeiten das mein Code bzw. mein UI besser aussieht, und man es besser benutzen kann.
-- [ ] Zudem möchte ich das ich bei den Diagrammen eine Zeit dauer auswählen kann also bsp. 1 Monat, 1 Jahr und Maximal Dauer.
+- [x] Heute möchte ich dafür sorgen das das Problem welches dafür sorgt das mein Programm nicht startet behoben wird.
+- [x] Zudem möchte ich daran arbeiten das mein Code bzw. mein UI besser aussieht, und man es besser benutzen kann.
+- [x] Zudem möchte ich das ich bei den Diagrammen eine Zeit dauer auswählen kann also bsp. 1 Monat, 1 Jahr und Maximal Dauer.
       
+Heute habe ich alles erreicht was ich wollte und konnte noch mehr umsetzten. Begonnen habe ich damit das ich das Programm wieder zum laufen gebracht habe, dann habe ich mich ans UI gesetzt und dies improvisiert, dann konnte ich umsetzten das man bei den Marktdiagrammen die dauer auswählen konnte welche das Diagram abdeckt. Die restliche Zeit habe ich dafür aufgewendet die Dashboardseite zu bauen und improvisieren. Akutell gibt es noch die fehler das sich das Inerface bei jeder eingabe immer nach rechts verschiebt, dies versuche ich noch zu beheben und dann möchte ich das die Diagramme auf der Dashboardseite responsive zu meiner Fenstergrösse angepasst werden.
