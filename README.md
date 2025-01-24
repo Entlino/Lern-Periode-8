@@ -26,3 +26,8 @@ Heute habe ich damit begonnen die Grobplanung zu erledigen, danach habe ich erst
 - [x] Zudem möchte ich das ich bei den Diagrammen eine Zeit dauer auswählen kann also bsp. 1 Monat, 1 Jahr und Maximal Dauer.
       
 Heute habe ich alles erreicht was ich wollte und konnte noch mehr umsetzten. Begonnen habe ich damit das ich das Programm wieder zum laufen gebracht habe, dann habe ich mich ans UI gesetzt und dies improvisiert, dann konnte ich umsetzten das man bei den Marktdiagrammen die dauer auswählen konnte welche das Diagram abdeckt. Die restliche Zeit habe ich dafür aufgewendet die Dashboardseite zu bauen und improvisieren. Akutell gibt es noch die fehler das sich das Inerface bei jeder eingabe immer nach rechts verschiebt, dies versuche ich noch zu beheben und dann möchte ich das die Diagramme auf der Dashboardseite responsive zu meiner Fenstergrösse angepasst werden.
+
+## 24.01.2025
+- [ ] Heute möchte ich damit beginnen das Problem mit der sich automatisch verschiebenden Interface zu beheben.
+- [ ] Zudem möchte ich das das Layout im generellen Responsive wird.
+- [ ] Das gesammte Programm sollte nochmals überarbeitet und überprüft werden um einen sauberen Stand zu haben, damit man in der nächsten Lern-Periode auf einer soliden Basis aufbauen kann.
