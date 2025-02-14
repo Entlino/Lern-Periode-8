@@ -187,7 +187,7 @@ class DashboardPage(tb.Frame):
             self.after(0, lambda: self.show_error(e))
 
     def display_charts(self, data: pd.DataFrame):
-        theme_name = self.style.theme.name
+        theme_name = self.app.style.theme.name
         bg_color, text_color = get_theme_colors(theme_name)
 
         if data.empty:
